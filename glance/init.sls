@@ -2,6 +2,7 @@
 # vim: ft=sls
 
 include:
-  - template.install
-  - template.config
-  - template.service
+  - glance.db
+  - glance.client
+  - glance.keystone
+  - glance.server

@@ -1,33 +1,70 @@
 # -*- coding: utf-8 -*-
 # vim: ft=jinja
 
-{## Start with  defaults from defaults.sls ##}
-{% import_yaml 'template/defaults.yaml' as default_settings %}
-
-{##
-Setup variable using grains['os_family'] based logic, only add key:values here
-that differ from whats in defaults.yaml
-##}
-{% set os_family_map = salt['grains.filter_by']({
-        'Debian': {},
-        'Suse': {},
-        'Arch': {
-            "pkg" : 'template-arch',
-        },
-        'RedHat': {
-            "config": '/etc/template.conf',
-        },
+{% set glance=salt["grains.filter_by"]({
+  "Debian": {
+    "name": "glance",
+    "pkg": "glance",
+    "api": {
+      "service": "glance-api",
+    },
+    "registry": {
+      "service": "glance-registry",
+    },
+    "client": {
+      "pkg": "python-glanceclient",
+    },
+  },
+  "RedHat": {
+    "name": "glance",
+    "pkg": "openstack-glance",
+    "api": {
+      "service": "openstack-glance-api",
+    },
+    "registry": {
+      "service": "openstack-glance-registry",
+    },
+    "client": {
+      "pkg": "python-glanceclient",
+    },
+  },
+  "default":{
+    "name": "glance",
+    "pkg": "glance",
+    "api": {
+      "service": "glance-api",
+    },
+    "registry": {
+      "service": "glance-registry",
+    },
+    "client": {
+      "pkg": "python-glanceclient",
+    },
   }
-  , grain="os_family"
-  , merge=salt['pillar.get']('template:lookup'))
-%}
-{## Merge the flavor_map to the default settings ##}
-{% do default_settings.template.update(os_family_map) %}
+  },merge=salt["pillar.get"]("glance:lookup")) %}
 
-{## Merge in template:lookup pillar ##}
-{% set template = salt['pillar.get'](
-        'template',
-        default=default_settings.template,
-        merge=True
-    )
-%}
+# Set the glance default config
+{%- set glance_config = {
+  "DEFAULT": {
+    "debug": "false",
+    "verbose": "false",
+    "admin_token" : salt["grains.get_or_set_hash"]("keystone:admin_token", length=20, chars="abcdefghijklmnopqrstuvwxyz0123456789"),
+  },
+  "database": {
+    "connection": "mysql://glance:" + salt["pillar.get"]("glance:mysql:password") + "@" + salt["pillar.get"]("glance:mysql:ip", "localhost") + "/glance?charset=utf8",
+  },
+  "memcache": {
+    "servers": salt["pillar.get"]("glance:memcached:ip") |join(":11211,") + ":11211",
+  },
+  "keystone_authtoken": {
+    "driver": "glance.token.backends.memcache.Token",
+    "provider": "glance.token.providers.uuid.Provider"
+  }
+} %}
+
+{% for section, value in salt["pillar.get"]("glance:config", {}).iteritems() %}
+  {% if not glance_config.has_key(section) %}
+    {% do glance_config.update({ section:{} }) %}
+  {% endif %}
+  {% do glance_config[section].update(value) %}
+{% endfor %}
