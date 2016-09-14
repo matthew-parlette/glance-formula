@@ -1,3 +1,37 @@
-template:
-  lookup:
-    master: template-master
+mysql.host: controller-address
+mysql.pass: mysql-root-password
+keystone.token: keystone-admin-token
+keystone.endpoint: http://controller-address:35357/v2.0
+
+glance:
+  public_ip: controller-address
+  internal_ip: controller-address
+  admin_ip: controller-address
+  email: glance@openstack.com
+  password: glance-service-password
+  mysql:
+    ip: controller-address
+    host: '%'
+    password: glance-db-password
+  api:
+    config:
+      database:
+        connection: mysql+pymysql://glance:glance-db-password@controller-address/glance
+      keystone_authtoken:
+        auth_uri: http://controller-address:5000
+        auth_url: http://controller-address:35357
+        memcached_servers: controller-address:11211
+        password: glance-service-password
+      glance_store:
+        stores: "file,http"
+        default_store: file
+        filesystem_store_datadir: /var/lib/glance/images
+  registry:
+    config:
+      database:
+        connection: mysql+pymysql://glance:glance-db-password@controller-address/glance
+      keystone_authtoken:
+        auth_uri: http://controller-address:5000
+        auth_url: http://controller-address:35357
+        memcached_servers: controller-address:11211
+        password: glance-service-password
